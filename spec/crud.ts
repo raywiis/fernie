@@ -1,54 +1,46 @@
 import * as http from "http";
-import { routes, paths, methods, path, makeHandler } from "../src/index";
+import { paths, methods, makeHandler, respond, ResponseGenerator } from "../src/index";
 import fetch from "node-fetch";
 import { delimiter } from "path/posix";
 
-const { get, post, GET, POST, PATCH, DELETE, method: m } = methods;
+const router = paths({
+	"/test": [
+		onError(() => respond({ status: 404 })),
+		methods({
+			GET: () => respond("test"),
+			// POST: [onError(() => "401"), (ctx) => ctx.body],
+			PATCH: () => respond("sick"),
+			DELETE: () => {
+				throw new Error("Sample error")
+			},
+		}),
+	],
+});
 
-paths({
-	'/test': [onError(() => '404'), methods({
-		GET: () => 'test',
-		POST: [onError(() => '401'), (ctx) => ctx.body],
-		PATCH: () => 'sick',
-		DELETE: () => 'fuck'
-	})]
-})
-
-function onError(customHandler) {
-	return (ctx, req, res, next) => {
+function onError(customHandler: ResponseGenerator) {
+	return (wrap) => (ctx, req) => {
 		let ret;
 		try {
-			ret = next(ctx, req, res)
+			return wrap(ctx, req)
 		} catch (e) {
-			ret = customHandler(ctx, req, res)
+			ret = customHandler(ctx, req)
 		}
 		return ret
 	}
 }
 
-const paths = {
-	'/thisRandomPath': [
-		m(get, () => 'wowawewawau')
-	]
-}
-
-function validateMiddle<T extends Context>(ctx: T, req: http.IncomingMessage): T & { body: any } {
-
-	return Object.assign(ctx, { body: 'test' })
-}
-
 const server = http.createServer((req, res) => {
 	const s = { path: { remaining: '' } }
-	doner(s, req, res);
+	const handler = makeHandler(router);
+	handler(req, res);
 });
 
 const PORT = 3000;
 
 server.listen(PORT, () => {
 	console.log("server listening");
-	fetch(`http://localhost:${PORT}/subpath/echo`, {
-		method: 'POST',
-		body: 'wowawewawau'
+	fetch(`http://localhost:${PORT}/test`, {
+		method: 'GET',
 	})
 		.then(res => {
 			console.log(res)

@@ -36,6 +36,9 @@ const router = paths({
 	),
 	"/nested": paths({
 		"/test": () => respond("wew"),
+		"/second": paths({
+			"/test": () => respond("wow"),
+		}),
 	}),
 });
 
@@ -66,30 +69,52 @@ describe("Basic path stuff", () => {
 		server.close();
 	});
 
-	const expectGet = (url: string, expectedResponse: string, ) => {
+	const doFetch = ({
+		method = "GET",
+		url,
+		expectedBody,
+		expectedStatus = 200,
+	}) => {
 		return async () => {
-			const res = await fetch(`http://localhost:${PORT}/${url}`);
+			const res = await fetch(`http://localhost:${PORT}/${url}`, {
+				method,
+			});
 			const buffer = await res.buffer();
-			assert(buffer.toString() === expectedResponse);
+			assert.equal(res.status, expectedStatus);
+			assert.equal(buffer.toString(), expectedBody);
 		};
 	};
 
-	it("should return a single response", expectGet("one", "single"));
-	it("should return a nested response", expectGet("test", "test"));
-	it("handles basic nested route", expectGet("nested/test", "wew"));
+	it(
+		"should return a single response",
+		doFetch({ url: "one", expectedBody: "single" })
+	);
 
-	it('handles different http methods', async () => {
-		const methods = [
-			"GET", "POST", "PUT", "PATCH", "DELETE"
-		]
+	it(
+		"should return a nested response",
+		doFetch({ url: "test", expectedBody: "test" })
+	);
+
+	it(
+		"handles a nested route",
+		doFetch({ url: "nested/test", expectedBody: "wew" })
+	);
+
+	it(
+		"handles a doubly nested route",
+		doFetch({ url: "nested/second/test", expectedBody: "wow" })
+	);
+
+	it("handles different http methods", async () => {
+		const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
 		for (const method of methods) {
-			const res = await fetch(`http://localhost:${PORT}/two`, {
-				method
-			});
-			const buff = await res.buffer();
-			assert.equal(200, res.status);
-			assert.strictEqual(buff.toString(), `${method} /two`)
+			await doFetch({ url: "two", method, expectedBody: `${method} /two` })();
 		}
-	})
+	});
+
+	it(
+		"returns a 404 if nothing matches on root",
+		doFetch({ url: "no-bind", expectedBody: "", expectedStatus: 404 })
+	);
 });

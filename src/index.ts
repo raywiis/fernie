@@ -2,9 +2,9 @@ import { IncomingMessage, ServerResponse } from "http";
 
 type ResHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
-const PathNotFound = Symbol('No mathing path not found');
+const PathNotFound = Symbol("No mathing path not found");
 
-const RoutingContextSymbol = Symbol('Routing context');
+const RoutingContextSymbol = Symbol("Routing context");
 
 interface IRoutingContext {
 	path: {
@@ -14,7 +14,7 @@ interface IRoutingContext {
 }
 
 interface Context {
-	[RoutingContextSymbol]: IRoutingContext
+	[RoutingContextSymbol]: IRoutingContext;
 }
 
 export function makeHandler(handler: ResponseGenerator): ResHandler {
@@ -23,10 +23,10 @@ export function makeHandler(handler: ResponseGenerator): ResHandler {
 			[RoutingContextSymbol]: {
 				path: {
 					original: req.url,
-					remainder: req.url
-				}
-			}
-		}
+					remainder: req.url,
+				},
+			},
+		};
 
 		const resSpec = handler(ctx, req);
 		if (resSpec === PathNotFound) {
@@ -37,7 +37,7 @@ export function makeHandler(handler: ResponseGenerator): ResHandler {
 
 		// TODO: More complex responses
 		res.end((resSpec as MResponse).body);
-	}
+	};
 }
 
 type MiddleWare = (parentFunc: ResponseGenerator) => ResponseGenerator;
@@ -45,8 +45,11 @@ interface PathSpec {
 	[path: string]: ResponseGenerator;
 }
 
-export function stack(middleware: MiddleWare[], handler: ResponseGenerator): ResponseGenerator {
-	return middleware.reduceRight((acc, curr) => curr(acc), handler)
+export function stack(
+	middleware: MiddleWare[],
+	handler: ResponseGenerator
+): ResponseGenerator {
+	return middleware.reduceRight((acc, curr) => curr(acc), handler);
 }
 
 export function paths(spec: PathSpec): ResponseGenerator {
@@ -62,19 +65,19 @@ export function paths(spec: PathSpec): ResponseGenerator {
 				[RoutingContextSymbol]: {
 					path: {
 						original: ctx[RoutingContextSymbol].path.original,
-						remainder: remainingPath.substring(path.length)
-					}
-				}
-			}
+						remainder: remainingPath.substring(path.length),
+					},
+				},
+			};
 			const result = handler(ctxUpdate, req);
 			if (result === PathNotFound) {
-				continue
+				continue;
 			}
 			return result;
 		}
 
-		return PathNotFound
-	}
+		return PathNotFound;
+	};
 }
 
 export function respond(a: string | { status?: number }): {
@@ -92,15 +95,18 @@ export function respond(a: string | { status?: number }): {
 
 type MResponse = ReturnType<typeof respond>;
 
-export type ResponseGenerator = (ctx: Context, req: IncomingMessage) => MResponse | Symbol;
+export type ResponseGenerator = (
+	ctx: Context,
+	req: IncomingMessage
+) => MResponse | Symbol;
 
 type MethodSpecification = {
-	GET?: ResponseGenerator
-	POST?: ResponseGenerator,
-	PUT?: ResponseGenerator
-	PATCH?: ResponseGenerator
-	DELETE?: ResponseGenerator
-}
+	GET?: ResponseGenerator;
+	POST?: ResponseGenerator;
+	PUT?: ResponseGenerator;
+	PATCH?: ResponseGenerator;
+	DELETE?: ResponseGenerator;
+};
 
 export function methods(spec: MethodSpecification): ResponseGenerator {
 	return (ctx, req) => {

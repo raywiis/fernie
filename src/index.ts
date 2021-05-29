@@ -4,42 +4,76 @@ type ResHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
 const PathNotFound = Symbol('No mathing path not found');
 
+const RoutingContextSymbol = Symbol('Routing context');
+
+interface IRoutingContext {
+	path: {
+		original: string;
+		remainder: string;
+	};
+}
+
+interface Context {
+	[RoutingContextSymbol]: IRoutingContext
+}
+
 export function makeHandler(handler: ResponseGenerator): ResHandler {
 	return (req, res) => {
-		const ctx = {}
-		const resSpec = handler(ctx, req);
-		if (typeof resSpec !== "symbol") {
-			res.end((resSpec as MResponse).body);
+		const ctx: Context = {
+			[RoutingContextSymbol]: {
+				path: {
+					original: req.url,
+					remainder: req.url
+				}
+			}
 		}
+
+		const resSpec = handler(ctx, req);
+		if (resSpec === PathNotFound) {
+			res.statusCode = 404;
+			res.end();
+			return;
+		}
+
+		// TODO: More complex responses
+		res.end((resSpec as MResponse).body);
 	}
 }
 
 type MiddleWare = (parentFunc: ResponseGenerator) => ResponseGenerator;
 interface PathSpec {
-	[path: string]: ResponseGenerator | [...MiddleWare[], ResponseGenerator];
+	[path: string]: ResponseGenerator;
+}
+
+export function stack(middleware: MiddleWare[], handler: ResponseGenerator): ResponseGenerator {
+	return middleware.reduceRight((acc, curr) => curr(acc), handler)
 }
 
 export function paths(spec: PathSpec): ResponseGenerator {
 	const entries = Object.entries(spec);
 	return (ctx, req) => {
-		const [_, handler] = entries.find(([path, h]) => {
-			return req.url.startsWith(path);
-		})
-
-		if (!handler) {
-			return PathNotFound;
+		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
+		for (const [path, handler] of entries) {
+			if (!remainingPath.startsWith(path)) {
+				continue;
+			}
+			const ctxUpdate: Context = {
+				...ctx,
+				[RoutingContextSymbol]: {
+					path: {
+						original: ctx[RoutingContextSymbol].path.original,
+						remainder: remainingPath.substring(path.length)
+					}
+				}
+			}
+			const result = handler(ctxUpdate, req);
+			if (result === PathNotFound) {
+				continue
+			}
+			return result;
 		}
 
-		// TODO: Update ctx to reduce path scope
-
-		if (Array.isArray(handler)) {
-			const final = handler.reduceRight(
-				(acc: ResponseGenerator, middleware: MiddleWare) => middleware(acc)
-			) as ResponseGenerator;
-			return final(ctx, req);
-		}
-
-		return handler(ctx, req);
+		return PathNotFound
 	}
 }
 
@@ -58,15 +92,14 @@ export function respond(a: string | { status?: number }): {
 
 type MResponse = ReturnType<typeof respond>;
 
-export type ResponseGenerator = (ctx, req: IncomingMessage) => MResponse | Symbol;
+export type ResponseGenerator = (ctx: Context, req: IncomingMessage) => MResponse | Symbol;
 
-
-interface MethodSpecification {
-	GET?: ResponseGenerator;
-	POST?: ResponseGenerator;
-	PUT?: ResponseGenerator;
-	PATCH?: ResponseGenerator;
-	DELETE?: ResponseGenerator;
+type MethodSpecification = {
+	GET?: ResponseGenerator
+	POST?: ResponseGenerator,
+	PUT?: ResponseGenerator
+	PATCH?: ResponseGenerator
+	DELETE?: ResponseGenerator
 }
 
 export function methods(spec: MethodSpecification): ResponseGenerator {

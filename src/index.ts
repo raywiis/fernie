@@ -2,11 +2,15 @@ import { IncomingMessage, ServerResponse } from "http";
 
 type ResHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
+const PathNotFound = Symbol('No mathing path not found');
+
 export function makeHandler(handler: ResponseGenerator): ResHandler {
 	return (req, res) => {
 		const ctx = {}
 		const resSpec = handler(ctx, req);
-		res.end(resSpec.body);
+		if (typeof resSpec !== "symbol") {
+			res.end((resSpec as MResponse).body);
+		}
 	}
 }
 
@@ -23,8 +27,10 @@ export function paths(spec: PathSpec): ResponseGenerator {
 		})
 
 		if (!handler) {
-			return null;
+			return PathNotFound;
 		}
+
+		// TODO: Update ctx to reduce path scope
 
 		if (Array.isArray(handler)) {
 			const final = handler.reduceRight(
@@ -52,7 +58,7 @@ export function respond(a: string | { status?: number }): {
 
 type MResponse = ReturnType<typeof respond>;
 
-export type ResponseGenerator = (ctx, req: IncomingMessage) => MResponse | null;
+export type ResponseGenerator = (ctx, req: IncomingMessage) => MResponse | Symbol;
 
 
 interface MethodSpecification {
@@ -66,6 +72,9 @@ interface MethodSpecification {
 export function methods(spec: MethodSpecification): ResponseGenerator {
 	return (ctx, req) => {
 		const responseMethod: ResponseGenerator = spec[req.method];
+		if (!responseMethod) {
+			return PathNotFound;
+		}
 		return responseMethod(ctx, req);
 	};
 }

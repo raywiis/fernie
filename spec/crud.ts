@@ -1,9 +1,11 @@
 import * as http from "http";
 import { paths, methods, makeHandler, respond, ResponseGenerator } from "../src/index";
 import fetch from "node-fetch";
-import { delimiter } from "path/posix";
+import "mocha";
+import { assert } from "console";
 
 const router = paths({
+	"/one": () => respond("single"),
 	"/test": [
 		onError(() => respond({ status: 404 })),
 		methods({
@@ -15,6 +17,9 @@ const router = paths({
 			},
 		}),
 	],
+	"/nested": paths({
+		"/test": () => respond("wew")
+	})
 });
 
 function onError(customHandler: ResponseGenerator) {
@@ -29,24 +34,31 @@ function onError(customHandler: ResponseGenerator) {
 	}
 }
 
-const server = http.createServer((req, res) => {
-	const s = { path: { remaining: '' } }
-	const handler = makeHandler(router);
-	handler(req, res);
-});
+const server = http.createServer(makeHandler(router));
 
 const PORT = 3000;
 
-server.listen(PORT, () => {
-	console.log("server listening");
-	fetch(`http://localhost:${PORT}/test`, {
-		method: 'GET',
-	})
-		.then(res => {
-			console.log(res)
-		})
-		.catch(console.error)
-		.finally(() => {
-			server.close();
+
+describe('Basic stuff', () => {
+	before((done) => {
+		server.listen(PORT, () => {
+			done()
 		});
-});
+	})
+
+	after(() => {
+		server.close()
+	})
+
+	const expectGet = (url: string, expectedResponse: string) => {
+		return async () => {
+			const res = await fetch(`http://localhost:${PORT}/${url}`);
+			const buffer = await res.buffer();
+			assert(buffer.toString() === expectedResponse)
+		}
+	}
+
+	it('should return a single response', expectGet('one', "single"))
+	it('should return a nested response', expectGet('test', "test"))
+	it('handles basic nested route', expectGet('nested/test', 'wew'))
+})

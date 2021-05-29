@@ -2,15 +2,16 @@
 	"name": "mauser",
 	"version": "1.0.0",
 	"description": "Functional routing for http",
-	"type": "module",
-	"exports": "./src/index",
 	"scripts": {
-		"test": "esm-ts-node spec/crud.ts"
+		"test": "mocha out/spec",
+		"build": "tsc"
 	},
 	"author": "",
 	"license": "ISC",
 	"devDependencies": {
+		"@types/mocha": "^8.2.2",
 		"@types/node": "^15.3.0",
+		"mocha": "^8.4.0",
 		"node-fetch": "^2.6.1"
 	},
 	"dependencies": {

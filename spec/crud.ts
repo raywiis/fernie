@@ -91,6 +91,11 @@ describe("Basic path stuff", () => {
 	);
 
 	it(
+		"shouldn't care about the method",
+		doFetch({ url: "one", expectedBody: "single", method: "DELETE" })
+	);
+
+	it(
 		"should return a nested response",
 		doFetch({ url: "test", expectedBody: "test" })
 	);

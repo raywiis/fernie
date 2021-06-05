@@ -97,6 +97,12 @@ describe("Basic path stuff", () => {
 	);
 
 	it(
+		"POST /one",
+		doFetch({ url: "one", expectedBody: "single", method: 'POST'})
+	);
+
+
+	it(
 		"GET /test",
 		doFetch({ url: "test", expectedBody: "test user" })
 	);

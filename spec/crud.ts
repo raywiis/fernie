@@ -27,7 +27,9 @@ const router = paths({
 		],
 		methods({
 			GET: (ctx) => respond(ctx.user),
-			// POST: [onError(() => "401"), (ctx) => ctx.body],
+			POST: stack([onError(() => respond({ status: 401 }))], () => {
+				throw new Error("Another error");
+			}),
 			PATCH: () => respond("sick"),
 			DELETE: () => {
 				throw new Error("Sample error");
@@ -50,13 +52,11 @@ function injectData<T>(injector: () => T) {
 
 function onError(customHandler) {
 	return (wrap) => (ctx, req) => {
-		let ret;
 		try {
 			return wrap(ctx, req);
 		} catch (e) {
-			ret = customHandler(ctx, req);
+			return customHandler(ctx, req);
 		}
-		return ret;
 	};
 }
 
@@ -91,26 +91,36 @@ describe("Basic path stuff", () => {
 		};
 	};
 
-	it(
-		"GET /one",
-		doFetch({ url: "one", expectedBody: "single" })
-	);
+	it("GET /one", doFetch({ url: "one", expectedBody: "single" }));
 
 	it(
 		"POST /one",
-		doFetch({ url: "one", expectedBody: "single", method: 'POST'})
+		doFetch({ url: "one", expectedBody: "single", method: "POST" })
 	);
 
-
-	it(
-		"GET /test",
-		doFetch({ url: "test", expectedBody: "test user" })
-	);
+	it("GET /test", doFetch({ url: "test", expectedBody: "test user" }));
 
 	it(
-		"GET /nested/test",
-		doFetch({ url: "nested/test", expectedBody: "wew" })
+		"POST /test",
+		doFetch({
+			url: "test",
+			expectedStatus: 401,
+			expectedBody: "",
+			method: "POST",
+		})
 	);
+
+	it(
+		"DELETE /test",
+		doFetch({
+			url: "test",
+			expectedStatus: 404,
+			expectedBody: "",
+			method: "DELETE",
+		})
+	);
+
+	it("GET /nested/test", doFetch({ url: "nested/test", expectedBody: "wew" }));
 
 	it(
 		"GET /nested/second/test",

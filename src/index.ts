@@ -35,6 +35,11 @@ export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
 			return;
 		}
 
+		if (typeof resSpec !== "object") {
+			return;
+		}
+
+		res.statusCode = (resSpec as MResponse).status;
 		// TODO: More complex responses
 		res.end((resSpec as MResponse).body);
 	};
@@ -54,14 +59,16 @@ export function stack<T, U>(
 	middleware: [MiddleWare<T>, MiddleWare<U>],
 	handler: ResponseGenerator<U>
 ): ResponseGenerator<U>;
-export function stack(
-	middleware,
-	handler
-) {
-	return (middleware.reduceRight((acc, curr) => curr(acc), handler)) as ResponseGenerator<any>;
+export function stack(middleware, handler) {
+	return middleware.reduceRight(
+		(acc, curr) => curr(acc),
+		handler
+	) as ResponseGenerator<any>;
 }
 
-export function paths<T extends Context>(spec: PathSpec<T>): ResponseGenerator<Context> {
+export function paths<T extends Context>(
+	spec: PathSpec<T>
+): ResponseGenerator<Context> {
 	const entries = Object.entries(spec);
 	return (ctx, req) => {
 		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
@@ -97,7 +104,7 @@ export function respond(a: string | { status?: number }): {
 		return { status: 200, body: a };
 	} else if (typeof a === "object") {
 		return {
-			status: 200 || a.status,
+			status: a.status || 200,
 		};
 	}
 }

@@ -20,13 +20,13 @@ const router = paths({
 		PATCH: () => respond("PATCH /two"),
 		DELETE: () => respond("DELETE /two"),
 	}),
-	"/test": [
-		onError(() => respond({ status: 404 })),
-		onError(() => respond({ status: 404 })),
-	].reduceRight(
-		(a, b) => b(a),
+	"/test": stack(
+		[
+			onError(() => respond({ status: 404 })),
+			injectData(() => ({ user: "test user" })),
+		],
 		methods({
-			GET: () => respond("test"),
+			GET: (ctx) => respond(ctx.user),
 			// POST: [onError(() => "401"), (ctx) => ctx.body],
 			PATCH: () => respond("sick"),
 			DELETE: () => {
@@ -42,7 +42,13 @@ const router = paths({
 	}),
 });
 
-function onError(customHandler: ResponseGenerator) {
+function injectData<T>(injector: () => T) {
+	return (wrap) => (ctx, req) => {
+		return wrap(Object.assign({}, ctx, { ...injector() }), req);
+	};
+}
+
+function onError(customHandler) {
 	return (wrap) => (ctx, req) => {
 		let ret;
 		try {
@@ -86,26 +92,26 @@ describe("Basic path stuff", () => {
 	};
 
 	it(
-		"should return a single response",
+		"GET /one",
 		doFetch({ url: "one", expectedBody: "single" })
 	);
 
 	it(
-		"should return a nested response",
-		doFetch({ url: "test", expectedBody: "test" })
+		"GET /test",
+		doFetch({ url: "test", expectedBody: "test user" })
 	);
 
 	it(
-		"handles a nested route",
+		"GET /nested/test",
 		doFetch({ url: "nested/test", expectedBody: "wew" })
 	);
 
 	it(
-		"handles a doubly nested route",
+		"GET /nested/second/test",
 		doFetch({ url: "nested/second/test", expectedBody: "wow" })
 	);
 
-	it("handles different http methods", async () => {
+	it("GET,POST,PUT,PATCH,DELETE /two", async () => {
 		const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
 
 		for (const method of methods) {
@@ -114,7 +120,7 @@ describe("Basic path stuff", () => {
 	});
 
 	it(
-		"returns a 404 if nothing matches on root",
+		"GET /no-bind",
 		doFetch({ url: "no-bind", expectedBody: "", expectedStatus: 404 })
 	);
 });

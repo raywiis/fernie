@@ -17,7 +17,7 @@ interface Context {
 	[RoutingContextSymbol]: IRoutingContext;
 }
 
-export function makeHandler(handler: ResponseGenerator): ResHandler {
+export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
 	return (req, res) => {
 		const ctx: Context = {
 			[RoutingContextSymbol]: {
@@ -40,19 +40,28 @@ export function makeHandler(handler: ResponseGenerator): ResHandler {
 	};
 }
 
-type MiddleWare = (parentFunc: ResponseGenerator) => ResponseGenerator;
-interface PathSpec {
-	[path: string]: ResponseGenerator;
+type MiddleWare<T> = (parentFunc: ResponseGenerator<T>) => ResponseGenerator<T>;
+
+interface PathSpec<T> {
+	[path: string]: ResponseGenerator<T>;
 }
 
+export function stack<T>(
+	middleware: [MiddleWare<T>],
+	handler: ResponseGenerator<T>
+): ResponseGenerator<T>;
+export function stack<T, U>(
+	middleware: [MiddleWare<T>, MiddleWare<U>],
+	handler: ResponseGenerator<U>
+): ResponseGenerator<U>;
 export function stack(
-	middleware: MiddleWare[],
-	handler: ResponseGenerator
-): ResponseGenerator {
-	return middleware.reduceRight((acc, curr) => curr(acc), handler);
+	middleware,
+	handler
+) {
+	return (middleware.reduceRight((acc, curr) => curr(acc), handler)) as ResponseGenerator<any>;
 }
 
-export function paths(spec: PathSpec): ResponseGenerator {
+export function paths<T extends Context>(spec: PathSpec<T>): ResponseGenerator<Context> {
 	const entries = Object.entries(spec);
 	return (ctx, req) => {
 		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
@@ -60,7 +69,7 @@ export function paths(spec: PathSpec): ResponseGenerator {
 			if (!remainingPath.startsWith(path)) {
 				continue;
 			}
-			const ctxUpdate: Context = {
+			const ctxUpdate = {
 				...ctx,
 				[RoutingContextSymbol]: {
 					path: {
@@ -68,7 +77,7 @@ export function paths(spec: PathSpec): ResponseGenerator {
 						remainder: remainingPath.substring(path.length),
 					},
 				},
-			};
+			} as T & Context;
 			const result = handler(ctxUpdate, req);
 			if (result === PathNotFound) {
 				continue;
@@ -95,22 +104,22 @@ export function respond(a: string | { status?: number }): {
 
 type MResponse = ReturnType<typeof respond>;
 
-export type ResponseGenerator = (
-	ctx: Context,
+export type ResponseGenerator<T> = (
+	ctx: Context & T,
 	req: IncomingMessage
 ) => MResponse | Symbol;
 
-type MethodSpecification = {
-	GET?: ResponseGenerator;
-	POST?: ResponseGenerator;
-	PUT?: ResponseGenerator;
-	PATCH?: ResponseGenerator;
-	DELETE?: ResponseGenerator;
+type MethodSpecification<T> = {
+	GET?: ResponseGenerator<T>;
+	POST?: ResponseGenerator<T>;
+	PUT?: ResponseGenerator<T>;
+	PATCH?: ResponseGenerator<T>;
+	DELETE?: ResponseGenerator<T>;
 };
 
-export function methods(spec: MethodSpecification): ResponseGenerator {
+export function methods<T>(spec: MethodSpecification<T>): ResponseGenerator<T> {
 	return (ctx, req) => {
-		const responseMethod: ResponseGenerator = spec[req.method];
+		const responseMethod: ResponseGenerator<T> = spec[req.method];
 		if (!responseMethod) {
 			return PathNotFound;
 		}

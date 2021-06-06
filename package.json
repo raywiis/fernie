@@ -1,14 +1,14 @@
 {
-	"name": "mauser",
-	"version": "1.0.0",
-	"description": "Functional routing for http",
+	"name": "ferny",
+	"version": "0.0.1",
+	"description": "Functional routing for node http",
 	"scripts": {
 		"test": "mocha out/spec",
 		"pretty": "prettier --write src spec",
 		"build": "tsc"
 	},
 	"author": "",
-	"license": "ISC",
+	"license": "MIT",
 	"devDependencies": {
 		"@types/mocha": "^8.2.2",
 		"@types/node": "^15.3.0",

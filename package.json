@@ -7,7 +7,11 @@
 		"pretty": "prettier --write src spec",
 		"build": "tsc"
 	},
-	"author": "",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/raywiis/ferny"
+	},
+	"author": "raywiis",
 	"license": "MIT",
 	"devDependencies": {
 		"@types/mocha": "^8.2.2",

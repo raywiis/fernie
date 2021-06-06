@@ -1,12 +1,5 @@
 import * as http from "http";
-import {
-	paths,
-	methods,
-	makeHandler,
-	respond,
-	ResponseGenerator,
-	stack,
-} from "../src/index";
+import { paths, methods, makeHandler, respond, stack } from "../src/index";
 import fetch from "node-fetch";
 import "mocha";
 import assert from "assert/strict";

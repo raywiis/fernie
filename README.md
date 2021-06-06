@@ -1,4 +1,4 @@
-# Ferny
+# Fernie
 
 > STILL IN DESIGN!! I don't recommend you use it for anything yet.
 
@@ -6,7 +6,7 @@ Minimal http routing
 
 ```js
 const http = require('http');
-const { makeHandler, paths, respond } = require('ferny');
+const { makeHandler, paths, respond } = require('fernie');
 
 const routes = paths({
 	'/hello': methods({

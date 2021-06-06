@@ -39,9 +39,8 @@ export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
 			return;
 		}
 
-		res.statusCode = (resSpec as MResponse).status;
-		// TODO: More complex responses
-		res.end((resSpec as MResponse).body);
+		res.statusCode = (resSpec as ResponseSpecification).statusCode;
+		res.end((resSpec as ResponseSpecification).body);
 	};
 }
 
@@ -96,25 +95,33 @@ export function paths<T extends Context>(
 	};
 }
 
-export function respond(a: string | { status?: number }): {
-	status: number;
-	body?: string;
-} {
+interface ResponseSpecification {
+	statusCode?: number;
+	body?: string | Buffer;
+}
+const defaultResponse: Required<ResponseSpecification> = {
+	statusCode: 200,
+	body: '',
+}
+
+export function respond(a: string | ResponseSpecification): Required<ResponseSpecification> {
 	if (typeof a === "string") {
-		return { status: 200, body: a };
+		return {
+			...defaultResponse,
+			body: a
+		};
 	} else if (typeof a === "object") {
 		return {
-			status: a.status || 200,
+			...defaultResponse,
+			...a,
 		};
 	}
 }
 
-type MResponse = ReturnType<typeof respond>;
-
 export type ResponseGenerator<T> = (
 	ctx: Context & T,
 	req: IncomingMessage
-) => MResponse | Symbol;
+) => ResponseSpecification | Symbol;
 
 type MethodSpecification<T> = {
 	GET?: ResponseGenerator<T>;

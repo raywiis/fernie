@@ -11,12 +11,12 @@ export default paths({
 	}),
 	"/test": stack(
 		[
-			onError(() => respond({ status: 404 })),
+			onError(() => respond({ statusCode: 404 })),
 			injectData(() => ({ user: "test user" })),
 		],
 		methods({
 			GET: (ctx) => respond(ctx.user),
-			POST: stack([onError(() => respond({ status: 401 }))], () => {
+			POST: stack([onError(() => respond({ statusCode: 401 }))], () => {
 				throw new Error("Another error");
 			}),
 			PATCH: () => respond("sick"),

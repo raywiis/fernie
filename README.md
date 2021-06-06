@@ -9,7 +9,7 @@ const http = require('http');
 const { makeHandler, paths, respond } = require('ferny');
 
 const routes = paths({
-	'/api/get': () => responsd("Hello, World");
+	'/api/get': () => respond("Hello, World");
 })
 
 const server = http.createServer(makeHandler(routes))

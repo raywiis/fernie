@@ -1,57 +1,9 @@
 import * as http from "http";
-import { paths, methods, makeHandler, respond, stack } from "../src/index";
+import { makeHandler } from "../src/index";
 import fetch from "node-fetch";
 import "mocha";
 import assert from "assert/strict";
-
-const router = paths({
-	"/one": () => respond("single"),
-	"/two": methods({
-		GET: () => respond("GET /two"),
-		PUT: () => respond("PUT /two"),
-		POST: () => respond("POST /two"),
-		PATCH: () => respond("PATCH /two"),
-		DELETE: () => respond("DELETE /two"),
-	}),
-	"/test": stack(
-		[
-			onError(() => respond({ status: 404 })),
-			injectData(() => ({ user: "test user" })),
-		],
-		methods({
-			GET: (ctx) => respond(ctx.user),
-			POST: stack([onError(() => respond({ status: 401 }))], () => {
-				throw new Error("Another error");
-			}),
-			PATCH: () => respond("sick"),
-			DELETE: () => {
-				throw new Error("Sample error");
-			},
-		})
-	),
-	"/nested": paths({
-		"/test": () => respond("wew"),
-		"/second": paths({
-			"/test": () => respond("wow"),
-		}),
-	}),
-});
-
-function injectData<T>(injector: () => T) {
-	return (wrap) => (ctx, req) => {
-		return wrap(Object.assign({}, ctx, { ...injector() }), req);
-	};
-}
-
-function onError(customHandler) {
-	return (wrap) => (ctx, req) => {
-		try {
-			return wrap(ctx, req);
-		} catch (e) {
-			return customHandler(ctx, req);
-		}
-	};
-}
+import router from "./fixture";
 
 const server = http.createServer(makeHandler(router));
 
@@ -120,13 +72,12 @@ describe("Basic path stuff", () => {
 		doFetch({ url: "nested/second/test", expectedBody: "wow" })
 	);
 
-	it("GET,POST,PUT,PATCH,DELETE /two", async () => {
-		const methods = ["GET", "POST", "PUT", "PATCH", "DELETE"];
-
-		for (const method of methods) {
-			await doFetch({ url: "two", method, expectedBody: `${method} /two` })();
-		}
-	});
+	it("GET,POST,PUT,PATCH,DELETE /two", async () =>
+		Promise.all(
+			["GET", "POST", "PUT", "PATCH", "DELETE"].map((method) =>
+				doFetch({ url: "two", method, expectedBody: `${method} /two` })()
+			)
+		));
 
 	it(
 		"GET /no-bind",

@@ -1,4 +1,12 @@
-import { paths, methods, respond, stack } from "../src/index";
+import {
+	paths,
+	methods,
+	respond,
+	stack,
+	MiddleWare,
+	Context,
+	ResponseGenerator,
+} from "../src/index";
 
 export default paths({
 	"/one": () => respond("single"),
@@ -14,7 +22,7 @@ export default paths({
 			onError(() => respond({ statusCode: 404 })),
 			injectData(() => ({ user: "test user" })),
 		],
-		methods({
+		methods<Context & { user: string }>({
 			GET: (ctx) => respond(ctx.user),
 			POST: stack([onError(() => respond({ statusCode: 401 }))], () => {
 				throw new Error("Another error");
@@ -33,14 +41,14 @@ export default paths({
 	}),
 });
 
-function injectData<T>(injector: () => T) {
-	return (wrap) => (ctx, req) => {
+function injectData<C, T>(injector: () => T): MiddleWare<C & T> {
+	return (wrap: ResponseGenerator<C & T>) => (ctx: C, req) => {
 		return wrap(Object.assign({}, ctx, { ...injector() }), req);
 	};
 }
 
-function onError(customHandler) {
-	return (wrap) => (ctx, req) => {
+function onError<T>(customHandler): MiddleWare<T> {
+	return (wrap) => (ctx: T, req) => {
 		try {
 			return wrap(ctx, req);
 		} catch (e) {

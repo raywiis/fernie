@@ -13,7 +13,7 @@ interface IRoutingContext {
 	};
 }
 
-interface Context {
+export interface Context {
 	[RoutingContextSymbol]: IRoutingContext;
 }
 
@@ -44,7 +44,9 @@ export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
 	};
 }
 
-type MiddleWare<T> = (parentFunc: ResponseGenerator<T>) => ResponseGenerator<T>;
+export type MiddleWare<T> = (
+	parentFunc: ResponseGenerator<T>
+) => ResponseGenerator<T>;
 
 interface PathSpec<T> {
 	[path: string]: ResponseGenerator<T>;
@@ -65,7 +67,7 @@ export function stack(middleware, handler) {
 	) as ResponseGenerator<any>;
 }
 
-export function paths<T extends Context>(
+export function paths<T>(
 	spec: PathSpec<T>
 ): ResponseGenerator<Context> {
 	const entries = Object.entries(spec);
@@ -101,14 +103,16 @@ interface ResponseSpecification {
 }
 const defaultResponse: Required<ResponseSpecification> = {
 	statusCode: 200,
-	body: '',
-}
+	body: "",
+};
 
-export function respond(a: string | ResponseSpecification): Required<ResponseSpecification> {
+export function respond(
+	a: string | ResponseSpecification
+): Required<ResponseSpecification> {
 	if (typeof a === "string") {
 		return {
 			...defaultResponse,
-			body: a
+			body: a,
 		};
 	} else if (typeof a === "object") {
 		return {
@@ -119,7 +123,7 @@ export function respond(a: string | ResponseSpecification): Required<ResponseSpe
 }
 
 export type ResponseGenerator<T> = (
-	ctx: Context & T,
+	ctx: T,
 	req: IncomingMessage
 ) => ResponseSpecification | Symbol;
 
@@ -132,7 +136,7 @@ type MethodSpecification<T> = {
 };
 
 export function methods<T>(spec: MethodSpecification<T>): ResponseGenerator<T> {
-	return (ctx, req) => {
+	return (ctx: T, req) => {
 		const responseMethod: ResponseGenerator<T> = spec[req.method];
 		if (!responseMethod) {
 			return PathNotFound;

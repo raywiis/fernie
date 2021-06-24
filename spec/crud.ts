@@ -83,4 +83,12 @@ describe("Basic path stuff", () => {
 		"GET /no-bind",
 		doFetch({ url: "no-bind", expectedBody: "", expectedStatus: 404 })
 	);
+
+	it(
+		"GET /params/test-param",
+		doFetch({
+			url: "params/test-param",
+			expectedBody: '{"wew":"test-param"}',
+		})
+	);
 });

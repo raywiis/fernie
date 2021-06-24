@@ -1,15 +1,19 @@
 import { IncomingMessage, ServerResponse } from "http";
+import { match, pathToRegexp } from "path-to-regexp";
 
 type ResHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
 const PathNotFound = Symbol("No mathing path not found");
 
-const RoutingContextSymbol = Symbol("Routing context");
+export const RoutingContextSymbol = Symbol("Routing context");
 
 interface IRoutingContext {
 	path: {
 		original: string;
 		remainder: string;
+		params?: {
+			[paramName: string]: any;
+		};
 	};
 }
 
@@ -67,14 +71,17 @@ export function stack(middleware, handler) {
 	) as ResponseGenerator<any>;
 }
 
-export function paths<T>(
-	spec: PathSpec<T>
-): ResponseGenerator<Context> {
+export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
 	const entries = Object.entries(spec);
 	return (ctx, req) => {
 		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
 		for (const [path, handler] of entries) {
-			if (!remainingPath.startsWith(path)) {
+			const keys = [];
+			const regex = pathToRegexp(path, keys, {
+				end: false,
+			});
+			const match = regex.exec(remainingPath);
+			if (!match) {
 				continue;
 			}
 			const ctxUpdate = {
@@ -82,7 +89,17 @@ export function paths<T>(
 				[RoutingContextSymbol]: {
 					path: {
 						original: ctx[RoutingContextSymbol].path.original,
-						remainder: remainingPath.substring(path.length),
+						remainder: remainingPath.substring(match[0].length),
+						params:
+							match.length > 1
+								? keys.reduce(
+									(acc, key, idx) => {
+										acc[key.name] = match[idx + 1];
+										return acc
+									},
+									{}
+								  )
+								: undefined,
 					},
 				},
 			} as T & Context;

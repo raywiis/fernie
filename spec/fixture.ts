@@ -6,6 +6,7 @@ import {
 	MiddleWare,
 	Context,
 	ResponseGenerator,
+	RoutingContextSymbol,
 } from "../src/index";
 
 export default paths({
@@ -39,6 +40,7 @@ export default paths({
 			"/test": () => respond("wow"),
 		}),
 	}),
+	"/params/:wew": (ctx, req) => respond(JSON.stringify(ctx[RoutingContextSymbol].path.params)),
 });
 
 function injectData<C, T>(injector: () => T): MiddleWare<C & T> {

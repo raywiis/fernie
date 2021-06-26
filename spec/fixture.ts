@@ -40,7 +40,11 @@ export default paths({
 			"/test": () => respond("wow"),
 		}),
 	}),
-	"/params/:wew": (ctx, req) => respond(JSON.stringify(ctx[RoutingContextSymbol].path.params)),
+	"/params/:wew": (ctx) =>
+		respond(JSON.stringify(ctx[RoutingContextSymbol].path.params)),
+	"/params_2/:first/:second": methods({
+		'POST': (ctx) => respond(JSON.stringify(ctx[RoutingContextSymbol].path.params)),
+	})
 });
 
 function injectData<C, T>(injector: () => T): MiddleWare<C & T> {

@@ -91,4 +91,22 @@ describe("Basic path stuff", () => {
 			expectedBody: '{"wew":"test-param"}',
 		})
 	);
+
+	it(
+		"POST /params_2/test-1/test-2",
+		doFetch({
+			method: "POST",
+			url: 'params_2/test-1/test-2',
+			expectedBody: '{"first":"test-1","second":"test-2"}'
+		})
+	)
+
+	it(
+		"GET /params_2/test-1",
+		doFetch({
+			url: "params_2/test-1",
+			expectedStatus: 404,
+			expectedBody: ""
+		})
+	)
 });

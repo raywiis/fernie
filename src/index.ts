@@ -71,6 +71,13 @@ export function stack(middleware, handler) {
 	) as ResponseGenerator<any>;
 }
 
+function buildParams(match, keys) {
+	return keys.reduce((acc, key, idx) => {
+		acc[key.name] = match[idx + 1];
+		return acc;
+	}, {});
+}
+
 export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
 	const entries = Object.entries(spec);
 	return (ctx, req) => {
@@ -84,24 +91,14 @@ export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
 			if (!match) {
 				continue;
 			}
+			const pathUpdate = {
+				original: ctx[RoutingContextSymbol].path.original,
+				remainder: remainingPath.substring(match[0].length),
+				params: match.length > 1 ? buildParams(match, keys) : undefined,
+			}
 			const ctxUpdate = {
 				...ctx,
-				[RoutingContextSymbol]: {
-					path: {
-						original: ctx[RoutingContextSymbol].path.original,
-						remainder: remainingPath.substring(match[0].length),
-						params:
-							match.length > 1
-								? keys.reduce(
-									(acc, key, idx) => {
-										acc[key.name] = match[idx + 1];
-										return acc
-									},
-									{}
-								  )
-								: undefined,
-					},
-				},
+				[RoutingContextSymbol]: { path: pathUpdate },
 			} as T & Context;
 			const result = handler(ctxUpdate, req);
 			if (result === PathNotFound) {

@@ -1,7 +1,6 @@
 import {
 	paths,
 	methods,
-	respond,
 	stack,
 	MiddleWare,
 	Context,
@@ -10,41 +9,40 @@ import {
 } from "../src/index";
 
 export default paths({
-	"/one": () => respond("single"),
+	"/one": () => "single",
 	"/two": methods({
-		GET: () => respond("GET /two"),
-		PUT: () => respond("PUT /two"),
-		POST: () => respond("POST /two"),
-		PATCH: () => respond("PATCH /two"),
-		DELETE: () => respond("DELETE /two"),
+		GET: () => "GET /two",
+		PUT: () => "PUT /two",
+		POST: () => "POST /two",
+		PATCH: () => "PATCH /two",
+		DELETE: () => "DELETE /two",
 	}),
 	"/test": stack(
 		[
-			onError(() => respond({ statusCode: 404 })),
+			onError(() => ({ statusCode: 404 })),
 			injectData(() => ({ user: "test user" })),
 		],
 		methods<Context & { user: string }>({
-			GET: (ctx) => respond(ctx.user),
-			POST: stack([onError(() => respond({ statusCode: 401 }))], () => {
+			GET: (ctx) => ctx.user,
+			POST: stack([onError(() => ({ statusCode: 401 }))], () => {
 				throw new Error("Another error");
 			}),
-			PATCH: () => respond("sick"),
+			PATCH: () => "sick",
 			DELETE: () => {
 				throw new Error("Sample error");
 			},
 		})
 	),
 	"/nested": paths({
-		"/test": () => respond("wew"),
+		"/test": () => "wew",
 		"/second": paths({
-			"/test": () => respond("wow"),
+			"/test": () => "wow",
 		}),
 	}),
 	"/params/:wew": (ctx) =>
-		respond(JSON.stringify(ctx[RoutingContextSymbol].path.params)),
+		JSON.stringify(ctx[RoutingContextSymbol].path.params),
 	"/params_2/:first/:second": methods({
-		POST: (ctx) =>
-			respond(JSON.stringify(ctx[RoutingContextSymbol].path.params)),
+		POST: (ctx) => JSON.stringify(ctx[RoutingContextSymbol].path.params),
 	}),
 });
 

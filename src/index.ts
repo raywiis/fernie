@@ -32,18 +32,15 @@ export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
 			},
 		};
 
-		const resSpec = handler(ctx, req);
-		if (resSpec === PathNotFound) {
+		const rawRes = handler(ctx, req);
+		if (rawRes === PathNotFound) {
 			res.statusCode = 404;
 			res.end();
 			return;
 		}
 
-		if (typeof resSpec !== "object") {
-			return;
-		}
-
-		res.statusCode = (resSpec as ResponseSpecification).statusCode;
+		const resSpec = respond(rawRes as RawResponse);
+		res.statusCode = resSpec.statusCode;
 		res.end((resSpec as ResponseSpecification).body);
 	};
 }
@@ -135,9 +132,9 @@ const defaultResponse: Required<ResponseSpecification> = {
 	body: "",
 };
 
-export function respond(
-	a: string | ResponseSpecification
-): Required<ResponseSpecification> {
+export type RawResponse = string | ResponseSpecification;
+
+export function respond(a: RawResponse): Required<ResponseSpecification> {
 	if (typeof a === "string") {
 		return {
 			...defaultResponse,
@@ -154,7 +151,7 @@ export function respond(
 export type ResponseGenerator<T> = (
 	ctx: T,
 	req: IncomingMessage
-) => ResponseSpecification | Symbol;
+) => RawResponse | Symbol;
 
 type MethodSpecification<T> = {
 	GET?: ResponseGenerator<T>;

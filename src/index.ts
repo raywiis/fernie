@@ -33,7 +33,7 @@ export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
 		};
 
 		const rawRes = handler(ctx, req);
-		if (rawRes === PathNotFound) {
+		if (!rawRes || rawRes === PathNotFound) {
 			res.statusCode = 404;
 			res.end();
 			return;
@@ -50,22 +50,30 @@ export type MiddleWare<T> = (
 ) => ResponseGenerator<T>;
 
 interface PathSpec<T> {
-	[path: string]: ResponseGenerator<T>;
+	[path: string]: ResponseGenerator<T> | BranchSpec<any>;
 }
 
 export function stack<T>(
 	middleware: [MiddleWare<T>],
-	handler: ResponseGenerator<T>
+	handler: ResponseGenerator<T> | BranchSpec<any>
 ): ResponseGenerator<T>;
 export function stack<T, U>(
 	middleware: [MiddleWare<T>, MiddleWare<U>],
-	handler: ResponseGenerator<U>
+	handler: ResponseGenerator<U> | BranchSpec<any>
 ): ResponseGenerator<U>;
 export function stack(middleware, handler) {
-	return middleware.reduceRight(
+	const middlewaredResponder = middleware.reduceRight(
 		(acc, curr) => curr(acc),
-		handler
+		(ctx, req) => {
+			const func =
+				typeof handler !== "function"
+					? handler.finder(handler.entries, req)
+					: handler;
+			return func ? func(ctx, req) : null;
+		}
 	) as ResponseGenerator<any>;
+
+	return (ctx, req) => middlewaredResponder(ctx, req);
 }
 
 function buildParams(match, keys) {
@@ -118,6 +126,14 @@ export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
 			...ctx,
 			[RoutingContextSymbol]: { path: pathUpdate },
 		} as T & Context;
+		if (typeof handler !== "function") {
+			const branch = handler.finder(handler.entries, req);
+			if (!branch) {
+				return PathNotFound;
+			}
+			const res = branch(ctxUpdate, req);
+			return res;
+		}
 		const result = handler(ctxUpdate, req);
 		return result;
 	};
@@ -153,6 +169,11 @@ export type ResponseGenerator<T> = (
 	req: IncomingMessage
 ) => RawResponse | Symbol;
 
+interface BranchSpec<T> {
+	finder: (entries: T, req: IncomingMessage) => any;
+	entries: T;
+}
+
 type MethodSpecification<T> = {
 	GET?: ResponseGenerator<T>;
 	POST?: ResponseGenerator<T>;
@@ -161,12 +182,15 @@ type MethodSpecification<T> = {
 	DELETE?: ResponseGenerator<T>;
 };
 
-export function methods<T>(spec: MethodSpecification<T>): ResponseGenerator<T> {
-	return (ctx: T, req) => {
-		const responseMethod: ResponseGenerator<T> = spec[req.method];
-		if (!responseMethod) {
-			return PathNotFound;
-		}
-		return responseMethod(ctx, req);
+function methodFinder<T>(spec: MethodSpecification<T>, req: IncomingMessage) {
+	return spec[req.method];
+}
+
+export function methods<T>(
+	spec: MethodSpecification<T>
+): BranchSpec<MethodSpecification<T>> {
+	return {
+		finder: methodFinder,
+		entries: spec,
 	};
 }

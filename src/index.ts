@@ -1,5 +1,5 @@
 import { IncomingMessage, ServerResponse } from "http";
-import { match, pathToRegexp } from "path-to-regexp";
+import { pathToRegexp } from "path-to-regexp";
 
 type ResHandler = (req: IncomingMessage, res: ServerResponse) => void;
 
@@ -78,10 +78,9 @@ function buildParams(match, keys) {
 	}, {});
 }
 
-export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
+function makeFinder<T>(spec: PathSpec<T>) {
 	const entries = Object.entries(spec);
-	return (ctx, req) => {
-		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
+	return (remainingPath: string) => {
 		for (const [path, handler] of entries) {
 			const keys = [];
 			const regex = pathToRegexp(path, keys, {
@@ -91,23 +90,39 @@ export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
 			if (!match) {
 				continue;
 			}
-			const pathUpdate = {
-				original: ctx[RoutingContextSymbol].path.original,
-				remainder: remainingPath.substring(match[0].length),
-				params: match.length > 1 ? buildParams(match, keys) : undefined,
-			}
-			const ctxUpdate = {
-				...ctx,
-				[RoutingContextSymbol]: { path: pathUpdate },
-			} as T & Context;
-			const result = handler(ctxUpdate, req);
-			if (result === PathNotFound) {
-				continue;
-			}
-			return result;
+			return {
+				match,
+				keys,
+				handler,
+			};
 		}
+		return null;
+	};
+}
 
-		return PathNotFound;
+export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
+	const findMatch = makeFinder(spec);
+	return (ctx, req) => {
+		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
+		const path = findMatch(remainingPath);
+		if (!path) {
+			return PathNotFound;
+		}
+		const { keys, match, handler } = path;
+		if (!match) {
+			return PathNotFound;
+		}
+		const pathUpdate = {
+			original: ctx[RoutingContextSymbol].path.original,
+			remainder: remainingPath.substring(match[0].length),
+			params: match.length > 1 ? buildParams(match, keys) : undefined,
+		};
+		const ctxUpdate = {
+			...ctx,
+			[RoutingContextSymbol]: { path: pathUpdate },
+		} as T & Context;
+		const result = handler(ctxUpdate, req);
+		return result;
 	};
 }
 

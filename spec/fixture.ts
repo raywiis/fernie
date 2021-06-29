@@ -2,11 +2,8 @@ import {
 	paths,
 	methods,
 	stack,
-	MiddleWare,
-	Context,
-	ResponseGenerator,
-	RoutingContextSymbol,
-} from "../src/index";
+	Routing,
+} from "../src/new";
 
 export default paths({
 	"/one": () => "single",
@@ -22,7 +19,7 @@ export default paths({
 			onError(() => ({ statusCode: 404 })),
 			injectData(() => ({ user: "test user" })),
 		],
-		methods<Context & { user: string }>({
+		methods({
 			GET: (ctx) => ctx.user,
 			POST: stack([onError(() => ({ statusCode: 401 }))], () => {
 				throw new Error("Another error");
@@ -40,19 +37,19 @@ export default paths({
 		}),
 	}),
 	"/params/:wew": (ctx) =>
-		JSON.stringify(ctx[RoutingContextSymbol].path.params),
+		JSON.stringify(ctx[Routing].path.params),
 	"/params_2/:first/:second": methods({
-		POST: (ctx) => JSON.stringify(ctx[RoutingContextSymbol].path.params),
+		POST: (ctx) => JSON.stringify(ctx[Routing].path.params),
 	}),
 });
 
-function injectData<C, T>(injector: () => T): MiddleWare<C & T> {
-	return (wrap: ResponseGenerator<C & T>) => (ctx: C, req) => {
+function injectData<C, T>(injector: () => T){
+	return (wrap) => (ctx: C, req) => {
 		return wrap(Object.assign({}, ctx, { ...injector() }), req);
 	};
 }
 
-function onError<T>(customHandler): MiddleWare<T> {
+function onError<T>(customHandler) {
 	return (wrap) => (ctx: T, req) => {
 		try {
 			return wrap(ctx, req);

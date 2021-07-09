@@ -66,8 +66,8 @@ type RoutingContext = {
 	path: {
 		remaining: string;
 		params: {
-			[name: string]: string
-		}
+			[name: string]: string;
+		};
 	};
 };
 
@@ -88,18 +88,19 @@ function resolvePathBranch(
 			continue;
 		}
 
-		const paramUpdate = keys.length > 0
-			? keys.reduce((acc, key, idx) => {
-				acc[key.name] = match[idx + 1];
-				return acc;
-			}, pathContext.path.params)
-			: pathContext.path.params;
+		const paramUpdate =
+			keys.length > 0
+				? keys.reduce((acc, key, idx) => {
+						acc[key.name] = match[idx + 1];
+						return acc;
+				  }, pathContext.path.params)
+				: pathContext.path.params;
 
 		const ctxUpdate = {
 			...pathContext,
 			path: {
 				params: paramUpdate,
-				remaining: pathContext.path.remaining.slice(match[0].length)
+				remaining: pathContext.path.remaining.slice(match[0].length),
 			},
 		};
 
@@ -115,7 +116,7 @@ export function makeHandler(spec: BranchSpec): RequestListener {
 			[Routing]: {
 				path: {
 					remaining: req.url,
-					params: {}
+					params: {},
 				},
 			},
 		};

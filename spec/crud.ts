@@ -43,6 +43,13 @@ describe("Basic path stuff", () => {
 		doFetch({ url: "one", expectedBody: "single", method: "POST" })
 	);
 
+	it("GET,POST,PUT,PATCH,DELETE /two", async () =>
+		Promise.all(
+			["GET", "POST", "PUT", "PATCH", "DELETE"].map((method) =>
+				doFetch({ url: "two", method, expectedBody: `${method} /two` })()
+			)
+		));
+
 	it("GET /test", doFetch({ url: "test", expectedBody: "test user" }));
 
 	it(
@@ -71,13 +78,6 @@ describe("Basic path stuff", () => {
 		"GET /nested/second/test",
 		doFetch({ url: "nested/second/test", expectedBody: "wow" })
 	);
-
-	it("GET,POST,PUT,PATCH,DELETE /two", async () =>
-		Promise.all(
-			["GET", "POST", "PUT", "PATCH", "DELETE"].map((method) =>
-				doFetch({ url: "two", method, expectedBody: `${method} /two` })()
-			)
-		));
 
 	it(
 		"GET /no-bind",

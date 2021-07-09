@@ -1,12 +1,7 @@
-import { IncomingMessage, RequestListener, ServerResponse } from "http";
+import { IncomingMessage, RequestListener } from "http";
 import { pathToRegexp } from "path-to-regexp";
-
-type ResponseBody = string;
-
-interface ResponseObject {
-	statusCode: number;
-	body: ResponseBody;
-}
+import { Response } from "./response";
+import finalizeResponse from "./finalizeResponse";
 
 type RoutableSpec = BranchSpec | RequestHandler;
 
@@ -24,43 +19,20 @@ type BranchSpec = {
 	middleware?: MiddleWare[];
 };
 
-export type Response = ResponseBody | ResponseObject;
-
 export const Routing = Symbol("Fernie routing");
 
 type Context = {
-	[Routing]: {
-		path: any;
-	};
+	[Routing]: RoutingContext;
 };
 
 export type SyncRequestHandler = (
-	context: Context,
+	context: any & Context,
 	request: IncomingMessage
 ) => Response;
+
 export type AsyncRequestHandler = () => Promise<Response>;
 
 export type RequestHandler = SyncRequestHandler | AsyncRequestHandler;
-
-function finalizeResponse(
-	targetRes: ServerResponse,
-	sourceRes: Response
-): void {
-	if (!sourceRes) {
-		targetRes.statusCode = 404;
-		targetRes.end();
-	} else if (typeof sourceRes === "string") {
-		targetRes.write(sourceRes);
-		targetRes.end();
-	} else if (typeof sourceRes === "object") {
-		targetRes.statusCode = sourceRes.statusCode || 200;
-		if (sourceRes.body) {
-			targetRes.write(sourceRes.body);
-		}
-		targetRes.end();
-	}
-	throw new Error("Response finalizer not implemented");
-}
 
 type RoutingContext = {
 	path: {
@@ -173,7 +145,15 @@ export function paths(entries: PathSpec): BranchSpec {
 	};
 }
 
-export function methods(entries): BranchSpec {
+type MethodSpec = {
+	GET?: RoutableSpec;
+	POST?: RoutableSpec;
+	PATCH?: RoutableSpec;
+	PUT?: RoutableSpec;
+	DELETE?: RoutableSpec;
+};
+
+export function methods(entries: MethodSpec): BranchSpec {
 	return {
 		type: BranchTypes.Method,
 		entries,

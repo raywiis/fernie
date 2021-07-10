@@ -1,8 +1,8 @@
 {
 	"name": "fernie",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"description": "Functional routing for node http",
-	"main": "./out/index.js",
+	"main": "./out/src/index.js",
 	"files": [
 		"out"
 	],

@@ -1,7 +1,8 @@
 {
 	"name": "fernie",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Functional routing for node http",
+	"main": "./out/index.js",
 	"scripts": {
 		"test": "mocha out/spec",
 		"pretty": "prettier --write src spec",

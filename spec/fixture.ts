@@ -2,12 +2,20 @@ import { paths, methods, stack, Routing } from "../src";
 
 export default paths({
 	"/one": () => "single",
+	"/async/one": async () => "async one",
 	"/two": methods({
 		GET: () => "GET /two",
 		PUT: () => "PUT /two",
 		POST: () => "POST /two",
 		PATCH: () => "PATCH /two",
 		DELETE: () => "DELETE /two",
+	}),
+	"/async/two": methods({
+		GET: async () => "GET /async/two",
+		PUT: async () => "PUT /async/two",
+		POST: async () => "POST /async/two",
+		PATCH: async () => "PATCH /async/two",
+		DELETE: async () => "DELETE /async/two",
 	}),
 	"/test": stack(
 		[
@@ -35,6 +43,8 @@ export default paths({
 	"/params_2/:first/:second": methods({
 		POST: (ctx) => JSON.stringify(ctx[Routing].path.params),
 	}),
+	"/async/params/:first/:second": async (ctx) =>
+		JSON.stringify(ctx[Routing].path.params),
 });
 
 function injectData<C, T>(injector: () => T) {

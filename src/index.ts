@@ -30,7 +30,10 @@ export type SyncRequestHandler = (
 	request: IncomingMessage
 ) => Response;
 
-export type AsyncRequestHandler = () => Promise<Response>;
+export type AsyncRequestHandler = (
+	context: any & Context,
+	request: IncomingMessage
+) => Promise<Response>;
 
 export type RequestHandler = SyncRequestHandler | AsyncRequestHandler;
 

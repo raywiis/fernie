@@ -39,6 +39,11 @@ describe("Basic path stuff", () => {
 	it("GET /one", doFetch({ url: "one", expectedBody: "single" }));
 
 	it(
+		"GET /async/one",
+		doFetch({ url: "async/one", expectedBody: "async one" })
+	);
+
+	it(
 		"POST /one",
 		doFetch({ url: "one", expectedBody: "single", method: "POST" })
 	);
@@ -47,6 +52,17 @@ describe("Basic path stuff", () => {
 		Promise.all(
 			["GET", "POST", "PUT", "PATCH", "DELETE"].map((method) =>
 				doFetch({ url: "two", method, expectedBody: `${method} /two` })()
+			)
+		));
+
+	it("GET,POST,PUT,PATCH,DELETE /async/two", async () =>
+		Promise.all(
+			["GET", "POST", "PUT", "PATCH", "DELETE"].map((method) =>
+				doFetch({
+					url: "async/two",
+					method,
+					expectedBody: `${method} /async/two`,
+				})()
 			)
 		));
 
@@ -107,6 +123,17 @@ describe("Basic path stuff", () => {
 			url: "params_2/test-1",
 			expectedStatus: 404,
 			expectedBody: "",
+		})
+	);
+
+	it(
+		"GET /async/params/one/two",
+		doFetch({
+			url: "async/params/one/two",
+			expectedBody: JSON.stringify({
+				first: "one",
+				second: "two",
+			}),
 		})
 	);
 });

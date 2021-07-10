@@ -1,4 +1,4 @@
-import { paths, methods, stack, Routing } from "../src/new";
+import { paths, methods, stack, Routing } from "../src";
 
 export default paths({
 	"/one": () => "single",

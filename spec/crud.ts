@@ -1,5 +1,5 @@
 import * as http from "http";
-import { makeHandler } from "../src/new";
+import { makeHandler } from "../src";
 import fetch from "node-fetch";
 import "mocha";
 import assert from "assert/strict";

@@ -1,196 +1,176 @@
-import { IncomingMessage, ServerResponse } from "http";
+import { IncomingMessage, RequestListener } from "http";
 import { pathToRegexp } from "path-to-regexp";
+import { Response } from "./response";
+import finalizeResponse from "./finalizeResponse";
 
-type ResHandler = (req: IncomingMessage, res: ServerResponse) => void;
+type RoutableSpec = BranchSpec | RequestHandler;
 
-const PathNotFound = Symbol("No mathing path not found");
+enum BranchTypes {
+	Path,
+	Method,
+	MiddleWare,
+}
 
-export const RoutingContextSymbol = Symbol("Routing context");
+type BranchSpec = {
+	type: BranchTypes;
+	entries: {
+		[key: string]: RoutableSpec;
+	};
+	middleware?: MiddleWare[];
+};
 
-interface IRoutingContext {
+export const Routing = Symbol("Fernie routing");
+
+type Context = {
+	[Routing]: RoutingContext;
+};
+
+export type SyncRequestHandler = (
+	context: any & Context,
+	request: IncomingMessage
+) => Response;
+
+export type AsyncRequestHandler = () => Promise<Response>;
+
+export type RequestHandler = SyncRequestHandler | AsyncRequestHandler;
+
+type RoutingContext = {
 	path: {
-		original: string;
-		remainder: string;
-		params?: {
-			[paramName: string]: any;
+		remaining: string;
+		params: {
+			[name: string]: string;
 		};
 	};
+};
+
+function resolvePathBranch(
+	paths,
+	pathContext: RoutingContext
+): [spec: RoutableSpec, ctxUpdate: RoutingContext] {
+	const entries = Object.entries(paths);
+
+	for (const [path, item] of entries) {
+		const keys = [];
+		const regex = pathToRegexp(path, keys, {
+			end: false,
+		});
+		const match = regex.exec(pathContext.path.remaining);
+
+		if (!match) {
+			continue;
+		}
+
+		const paramUpdate =
+			keys.length > 0
+				? keys.reduce((acc, key, idx) => {
+						acc[key.name] = match[idx + 1];
+						return acc;
+				  }, pathContext.path.params)
+				: pathContext.path.params;
+
+		const ctxUpdate = {
+			...pathContext,
+			path: {
+				params: paramUpdate,
+				remaining: pathContext.path.remaining.slice(match[0].length),
+			},
+		};
+
+		return [item as any, ctxUpdate];
+	}
+
+	return [undefined, null];
 }
 
-export interface Context {
-	[RoutingContextSymbol]: IRoutingContext;
-}
-
-export function makeHandler(handler: ResponseGenerator<Context>): ResHandler {
-	return (req, res) => {
-		const ctx: Context = {
-			[RoutingContextSymbol]: {
+export function makeHandler(spec: BranchSpec): RequestListener {
+	return async (req, res) => {
+		const context = {
+			[Routing]: {
 				path: {
-					original: req.url,
-					remainder: req.url,
+					remaining: req.url,
+					params: {},
 				},
 			},
 		};
 
-		const rawRes = handler(ctx, req);
-		if (!rawRes || rawRes === PathNotFound) {
-			res.statusCode = 404;
-			res.end();
-			return;
-		}
-
-		const resSpec = respond(rawRes as RawResponse);
-		res.statusCode = resSpec.statusCode;
-		res.end((resSpec as ResponseSpecification).body);
-	};
-}
-
-export type MiddleWare<T> = (
-	parentFunc: ResponseGenerator<T>
-) => ResponseGenerator<T>;
-
-interface PathSpec<T> {
-	[path: string]: ResponseGenerator<T> | BranchSpec<any>;
-}
-
-export function stack<T>(
-	middleware: [MiddleWare<T>],
-	handler: ResponseGenerator<T> | BranchSpec<any>
-): ResponseGenerator<T>;
-export function stack<T, U>(
-	middleware: [MiddleWare<T>, MiddleWare<U>],
-	handler: ResponseGenerator<U> | BranchSpec<any>
-): ResponseGenerator<U>;
-export function stack(middleware, handler) {
-	const middlewaredResponder = middleware.reduceRight(
-		(acc, curr) => curr(acc),
-		(ctx, req) => {
-			const func =
-				typeof handler !== "function"
-					? handler.finder(handler.entries, req)
-					: handler;
-			return func ? func(ctx, req) : null;
-		}
-	) as ResponseGenerator<any>;
-
-	return (ctx, req) => middlewaredResponder(ctx, req);
-}
-
-function buildParams(match, keys) {
-	return keys.reduce((acc, key, idx) => {
-		acc[key.name] = match[idx + 1];
-		return acc;
-	}, {});
-}
-
-function makeFinder<T>(spec: PathSpec<T>) {
-	const entries = Object.entries(spec);
-	return (remainingPath: string) => {
-		for (const [path, handler] of entries) {
-			const keys = [];
-			const regex = pathToRegexp(path, keys, {
-				end: false,
-			});
-			const match = regex.exec(remainingPath);
-			if (!match) {
-				continue;
+		let handler: RoutableSpec = spec;
+		let middlewares = [];
+		while (handler && typeof handler !== "function") {
+			let resolution;
+			let update = context[Routing];
+			if (handler.type === BranchTypes.Method) {
+				resolution = handler.entries[req.method];
+			} else if (handler.type === BranchTypes.Path) {
+				[resolution, update] = resolvePathBranch(
+					handler.entries,
+					context[Routing]
+				);
+			} else if (handler.type === BranchTypes.MiddleWare) {
+				middlewares = [...middlewares, ...handler.middleware];
+				resolution = handler.entries.thing;
 			}
-			return {
-				match,
-				keys,
-				handler,
-			};
-		}
-		return null;
-	};
-}
 
-export function paths<T>(spec: PathSpec<T>): ResponseGenerator<Context> {
-	const findMatch = makeFinder(spec);
-	return (ctx, req) => {
-		const remainingPath = ctx[RoutingContextSymbol].path.remainder;
-		const path = findMatch(remainingPath);
-		if (!path) {
-			return PathNotFound;
-		}
-		const { keys, match, handler } = path;
-		if (!match) {
-			return PathNotFound;
-		}
-		const pathUpdate = {
-			original: ctx[RoutingContextSymbol].path.original,
-			remainder: remainingPath.substring(match[0].length),
-			params: match.length > 1 ? buildParams(match, keys) : undefined,
-		};
-		const ctxUpdate = {
-			...ctx,
-			[RoutingContextSymbol]: { path: pathUpdate },
-		} as T & Context;
-		if (typeof handler !== "function") {
-			const branch = handler.finder(handler.entries, req);
-			if (!branch) {
-				return PathNotFound;
+			if (resolution) {
+				handler = resolution;
+				context[Routing] = update;
+			} else {
+				handler = undefined;
 			}
-			const res = branch(ctxUpdate, req);
-			return res;
 		}
-		const result = handler(ctxUpdate, req);
-		return result;
+
+		if (!handler) {
+			finalizeResponse(res, undefined);
+		}
+
+		const middlewaredHandler: RequestHandler = middlewares.reduceRight(
+			(acc, middleware) => {
+				return middleware(acc);
+			},
+			handler
+		);
+
+		const result = await middlewaredHandler(context, req);
+		finalizeResponse(res, result);
 	};
 }
 
-interface ResponseSpecification {
-	statusCode?: number;
-	body?: string | Buffer;
-}
-const defaultResponse: Required<ResponseSpecification> = {
-	statusCode: 200,
-	body: "",
+type PathSpec = {
+	[path: string]: RoutableSpec;
 };
 
-export type RawResponse = string | ResponseSpecification;
-
-export function respond(a: RawResponse): Required<ResponseSpecification> {
-	if (typeof a === "string") {
-		return {
-			...defaultResponse,
-			body: a,
-		};
-	} else if (typeof a === "object") {
-		return {
-			...defaultResponse,
-			...a,
-		};
-	}
-}
-
-export type ResponseGenerator<T> = (
-	ctx: T,
-	req: IncomingMessage
-) => RawResponse | Symbol;
-
-interface BranchSpec<T> {
-	finder: (entries: T, req: IncomingMessage) => any;
-	entries: T;
-}
-
-type MethodSpecification<T> = {
-	GET?: ResponseGenerator<T>;
-	POST?: ResponseGenerator<T>;
-	PUT?: ResponseGenerator<T>;
-	PATCH?: ResponseGenerator<T>;
-	DELETE?: ResponseGenerator<T>;
-};
-
-function methodFinder<T>(spec: MethodSpecification<T>, req: IncomingMessage) {
-	return spec[req.method];
-}
-
-export function methods<T>(
-	spec: MethodSpecification<T>
-): BranchSpec<MethodSpecification<T>> {
+export function paths(entries: PathSpec): BranchSpec {
 	return {
-		finder: methodFinder,
-		entries: spec,
+		type: BranchTypes.Path,
+		entries,
+	};
+}
+
+type MethodSpec = {
+	GET?: RoutableSpec;
+	POST?: RoutableSpec;
+	PATCH?: RoutableSpec;
+	PUT?: RoutableSpec;
+	DELETE?: RoutableSpec;
+};
+
+export function methods(entries: MethodSpec): BranchSpec {
+	return {
+		type: BranchTypes.Method,
+		entries,
+	};
+}
+
+type MiddleWare = (wrap: RoutableSpec) => RoutableSpec;
+
+export function stack(
+	middleware: MiddleWare[],
+	finalHandler: RoutableSpec
+): BranchSpec {
+	return {
+		type: BranchTypes.MiddleWare,
+		entries: {
+			thing: finalHandler,
+		},
+		middleware,
 	};
 }
